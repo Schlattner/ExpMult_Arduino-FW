@@ -26,34 +26,38 @@ Arduino Micro Firmware Exp. Multiplexer
  * 
  */
  
-Normal Mode:
-Button0 (On/Off) switches selected channel on/off
-Button1 (Select) cycles through channels
-Leds0-3 are signaling channel unselected on, unselected off, selected on and selected off
-Unselected on: Led On
-Unselected off: Led Off
-Selected on: fast blink
-Selected off: slow blink
-Leds4-7 are signaling the mode of the selected channel
-Led of the NVM-saved mode is on, others are off
-If selector wheel is changed, led of selected mode is on, others off and NVM is updated
 
-Patch Mode:
-Button0 (On/Off) switches selected patch on/off
-Button1 (Select) cycles through patches
-Leds0-3 are signaling channel on/off
-Leds4-7 are signaling patch 
-Unselected on: Led On
-Unselected off: Led Off
-Selected on: fast blink
-Selected off: slow blink
-Selector wheel can also be used to select patch, but is recognized only on change - default patch mode starts at patch 0.
+/*
+* Normal Mode:
+* Button0 (On/Off) switches selected channel on/off
+* Button1 (Select) cycles through channels
+* Leds0-3 are signaling channel unselected on, unselected off, selected on and selected off
+* Unselected on: Led On
+* Unselected off: Led Off
+* Selected on: fast blink
+* Selected off: slow blink
+* Leds4-7 are signaling the mode of the selected channel
+* Led of the NVM-saved mode is on, others are off
+* If selector wheel is changed, led of selected mode is on, others off and NVM is updated
+* 
+* Patch Mode:
+* Button0 (On/Off) switches selected patch on/off
+* Button1 (Select) cycles through patches
+* Leds0-3 are signaling channel on/off
+* Leds4-7 are signaling patch 
+* Unselected on: Led On
+* Unselected off: Led Off
+* Selected on: fast blink
+* Selected off: slow blink
+* Selector wheel can also be used to select patch, but is recognized only on change - default patch mode starts at patch 0.
+* 
+* Switching between Normal and Patch Mode: Pushing both Buttons simultaneously.
+* 
+* Save Mode:
+* Used for saving patches
+* Activated by holding Button1 (Select) for >2s (only from normal mode!)
+* Patch selected via Selector Knob -> selected Patch Led fast blink
+* Channel Leds represent channel state (on/off)
+* Patch then is saved on selected spot
+*/
 
-Switching between Normal and Patch Mode: Pushing both Buttons simultaneously.
-
-Save Mode:
-Used for saving patches
-Activated by holding Button1 (Select) for >2s (only from normal mode!)
-Patch selected via Selector Knob -> selected Patch Led fast blink
-Channel Leds represent channel state (on/off)
-Patch then is saved on selected spot
