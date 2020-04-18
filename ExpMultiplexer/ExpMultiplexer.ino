@@ -186,9 +186,6 @@ void IntTmr1(void){
   if(TimerCount % 10 == 0){
     Tmr100msTask();
   }
-  if(TimerCount % 12 == 0){
-    Tmr120msTask();
-  }
   if(TimerCount % 25 == 0){
     Tmr250msTask();
   }
@@ -376,10 +373,7 @@ void Tmr100msTask(void){
   //check if selector knob was operated and update Leds
   CheckSelector();
   CheckLeds();
-}
-
-void Tmr120msTask(void){
-  //Fast Led Blinking with 4.16Hz - Timer is Toggle Frequency, so BlinkFrequency is half
+  //Fast Led Blinking with 5Hz - Timer is Toggle Frequency, so BlinkFrequency is half
   LedsFastBlink();
 }
 
