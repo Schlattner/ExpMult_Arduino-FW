@@ -79,6 +79,8 @@
  249, 251, 253, 255};
  
  //Variable declarations
+ word ExpInputVal = 0; //Input ADC Value
+ word SelInputVal = 0; //Input ADC Value
  byte ExpVal = 0; //Exp Pedal Input Value
  byte SelVal = 0; //Selector Wheel input Value
  
@@ -134,14 +136,19 @@
 void setup() {
   //Init Pins
   pinMode(nCS0, OUTPUT);
+  digitalWrite(nCS0, HIGH);
   pinMode(nCS1, OUTPUT);
+  digitalWrite(nCS1, HIGH);
   pinMode(nCS2, OUTPUT);
+  digitalWrite(nCS2, HIGH);
   pinMode(nCS3, OUTPUT);
+  digitalWrite(nCS3, HIGH);
 
   pinMode(Btn0, INPUT);
   pinMode(Btn1, INPUT);
 
   pinMode(nSHDWN, OUTPUT);
+  digitalWrite(nSHDWN, LOW);
 
   pinMode(SelIn, INPUT);
   pinMode(ExpIn, INPUT);
@@ -155,14 +162,17 @@ void setup() {
   pinMode(Led6, OUTPUT);
   pinMode(Led7, OUTPUT);
 
-  //Init SPI with 5MHz, MSB-First, SPI-Mode 0,0
+  //Init SPI with 2MHz, MSB-First, SPI-Mode 0,0
   SPI.begin();
-  SPI.beginTransaction(SPISettings(5000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(2000000, MSBFIRST, SPI_MODE0));
 
   //Init ADC Values
   SelVal = (analogRead(SelIn) >> 8);
   LastSelVal = SelVal;
   ExpVal = (analogRead(ExpIn) >> 2);
+
+  //Init Buttons
+  CheckBtns();
 
   //Init DigPots
   DigPotsInit();
@@ -179,10 +189,7 @@ void IntTmr1(void){
   //Timer1 Interrupt Routine
   //Refresh Timer and execute periodic tasks
   TimerCount++;
-  Timer1.restart();
-  
   Tmr10msTask();
-  
   if(TimerCount % 10 == 0){
     Tmr100msTask();
   }
@@ -197,7 +204,9 @@ void IntTmr1(void){
 
 void loop() {
   //Read 10bit ADC Value to 8bit variable
-  ExpVal = (analogRead(ExpIn) >> 2);
+  ExpInputVal = analogRead(ExpIn);
+  ExpVal = ExpInputVal >> 2;
+  CheckSelector();
   
   //check if running on normal, patch or Save mode
   if(PatchMode){
@@ -227,6 +236,13 @@ void loop() {
       PatchMode = false;
       //if in patch mode -> go to normal mode
       SelIndex = 0;
+      CheckLeds();
+      while(!Btn0Released && !Btn1Released){
+        CheckBtns();
+        delay(10);
+      }
+      delay(10);
+      UpdateNvmData();
       ClrBtns();
     }
     //Check if Mode Selector Value changed -> used to select patch
@@ -284,23 +300,35 @@ void loop() {
       ClrBtns();
     } else if(Btn0Pressed && !Btn0Released && Btn1Pressed && !Btn1Released){
       //On/Off + Select Button pressed together -> Mode Change
-      PatchMode = true;
       //go to patch mode
       SvMdCntrActive = false;
       SaveModeCounter = 0;
       SelIndex = 0;
-      UpdateNvmData();
+      PatchMode = true;
       CheckLeds();
+      while(!Btn0Released && !Btn1Released){
+        CheckBtns();
+        delay(10);
+      }
+      delay(10);
+      UpdateNvmData();
       ClrBtns();
     } else if(!Btn0Pressed && !Btn0Released && Btn1Pressed && !Btn1Released){
       //check if SaveMode has been entered (holding select button for ~2s)
       SvMdCntrActive = true;
       if(SaveModeCounter > 3){
-        SaveModeCounter = 0;
         //if SelectButton is pressed for 2 Seconds, enter SaveMode
-        SaveMode = true;
+        SvMdCntrActive = false;
+        SaveModeCounter = 0;
         SelIndex = 0;
         SvMdCntrActive = false;
+        SaveMode = true;
+        CheckLeds();
+        while(!Btn1Released){
+          CheckBtns();
+          delay(10);
+        }
+        delay(10);
         UpdateNvmData();
         ClrBtns();
       }      
@@ -308,9 +336,9 @@ void loop() {
     //Check if Mode Selector Value changed on currently selected channel
     if(SelValChng){
       ChnlMode[SelIndex] = SelVal;
+      SelValChng = false;
       //update mode of current channel
       CheckLeds();
-      SelValChng = false;
       UpdateNvmData();
       }
     //step through channels and update DigPots with latest Exp. Values
@@ -338,21 +366,27 @@ void loop() {
     //end Normal Mode
   }else{
     //Save Mode
-    if(!Btn0Pressed && !Btn0Released && Btn1Pressed && !Btn1Released){
+    if(Btn1Pressed && !Btn1Released){
       SvMdCntrActive = true;
       //check if SaveMode has been exited
       if(SaveModeCounter > 3){
         //if SelectButton is pressed for 2 Seconds, exit SaveMode
-        SaveModeCounter = 0;
         SvMdCntrActive = false;
+        SaveModeCounter = 0;
         //copy channel and mode info to patch data of selected patch
         for(byte i = 0; i < 4; i++){
           PatchModeState[SelIndex][i] = ChnlMode[i];
           PatchChnlState[SelIndex][i] = ChnlState[i];
         }
-        SaveMode = false;
         SelIndex = 0;
         SelValChng = false;
+        SaveMode = false;
+        CheckLeds();
+        while(!Btn1Released){
+          CheckBtns();
+          delay(10);
+        }
+        delay(10);
         UpdateNvmData();
         ClrBtns();
       }
@@ -370,8 +404,7 @@ void Tmr10msTask(void){
 }
 
 void Tmr100msTask(void){
-  //check if selector knob was operated and update Leds
-  CheckSelector();
+  //update Leds
   CheckLeds();
   //Fast Led Blinking with 5Hz - Timer is Toggle Frequency, so BlinkFrequency is half
   LedsFastBlink();
@@ -389,7 +422,8 @@ void Tmr500msTask(void){
 
 void CheckSelector(void){
   //read analog value of selector pot and convert to 2bit value (4 states)
-  SelVal = (analogRead(SelIn) >> 8);
+  SelInputVal = analogRead(SelIn);
+  SelVal = SelInputVal >> 8;
   //check if value changed
   if(SelVal != LastSelVal){
     SelValChng = true;
@@ -463,7 +497,7 @@ void CheckLeds(void){
         ChnlLedState[i] = 3;
       } else if(SelIndex == i && ChnlState[i] == false){
         ChnlLedState[i] = 2;
-      }   
+      }
       //reset Mode Led
       ModeLedState[i] = 0;
     }
@@ -527,7 +561,7 @@ void LedsFastBlink(void){
 void DigPotsInit(void){
   //Init DigPots on zero position and activate wiper
   for(byte i = 0; i < 4; i++){
-    WritePotSPI(i, 0x00);
+    WritePotSPI(i, ExpVal);
   }
   //activate wiper
   digitalWrite(nSHDWN, HIGH);
