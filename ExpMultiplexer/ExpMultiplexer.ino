@@ -79,8 +79,6 @@
  249, 251, 253, 255};
  
  //Variable declarations
- word ExpInputVal = 0; //Input ADC Value
- word SelInputVal = 0; //Input ADC Value
  byte ExpVal = 0; //Exp Pedal Input Value
  byte SelVal = 0; //Selector Wheel input Value
  
@@ -204,8 +202,7 @@ void IntTmr1(void){
 
 void loop() {
   //Read 10bit ADC Value to 8bit variable
-  ExpInputVal = analogRead(ExpIn);
-  ExpVal = ExpInputVal >> 2;
+  ExpVal = analogRead(ExpIn) >> 2;
   CheckSelector();
   
   //check if running on normal, patch or Save mode
@@ -422,8 +419,7 @@ void Tmr500msTask(void){
 
 void CheckSelector(void){
   //read analog value of selector pot and convert to 2bit value (4 states)
-  SelInputVal = analogRead(SelIn);
-  SelVal = SelInputVal >> 8;
+  SelVal = analogRead(SelIn) >> 8;
   //check if value changed
   if(SelVal != LastSelVal){
     SelValChng = true;
@@ -609,31 +605,40 @@ void WritePotSPI(byte PotID, byte Data){
 
 void ReadNvmData(void){
   //Reads EEPROM Data to corresponding variables
-  for(byte i = 0; i < 10; i++){
+  //also checks if EEPROM Data is valid by computing and comparing the checksum
+  byte CalcChckSum = 0;
+  for(byte i = 0; i < sizeof(NvmData); i++){
     NvmData[i] = EEPROM.read(i);
+    CalcChckSum += NvmData[i];
   }
 
-  //Read back Channel Mode info for normal mode
-  for(byte i = 0; i < 4; i++){
-    ChnlMode[i] = (NvmData[0] >> (i * 2)) & 0x03; 
-  }
-
-  //Read back channel on/off info for patch mode
-  for(byte i = 0; i < 4; i++){
-    for(byte j = 0; j < 4; j++){
-      PatchChnlState[i][j] = (NvmData[1 + (i * 2)] >> j) & 0x01;
+  //checks if EEPROM Data is valid by computing and comparing the checksum
+  if(CalcChckSum == EEPROM.read(sizeof(NvmData))){
+    //data valid - checksum correct - read values into corresponding variables
+    //Read back Channel Mode info for normal mode
+    for(byte i = 0; i < 4; i++){
+      ChnlMode[i] = (NvmData[0] >> (i * 2)) & 0x03; 
     }
-  }
 
-  //Read back mode info for patch mode
-  for(byte i = 0; i < 4; i++){
-    for(byte j = 0; j < 4; j++){
-      PatchModeState[i][j] = (NvmData[2 + (i * 2)] >> (j * 2)) & 0x03; 
+    //Read back channel on/off info for patch mode
+    for(byte i = 0; i < 4; i++){
+      for(byte j = 0; j < 4; j++){
+        PatchChnlState[i][j] = (NvmData[1 + (i * 2)] >> j) & 0x01;
+     }
     }
-  }
 
-  //Read back Operating Mode
-  PatchMode = NvmData[9];
+    //Read back mode info for patch mode
+    for(byte i = 0; i < 4; i++){
+      for(byte j = 0; j < 4; j++){
+        PatchModeState[i][j] = (NvmData[2 + (i * 2)] >> (j * 2)) & 0x03; 
+      }
+   }
+
+    //Read back Operating Mode
+    PatchMode = NvmData[9];
+  }else{
+    //EEPROM data not valid - default values stay at "0"
+  }
 }
 
 void UpdateNvmData(void){
@@ -662,7 +667,11 @@ void UpdateNvmData(void){
   NvmData[9] = PatchMode;
   
   //Update NV-Memory
-  for(byte i = 0; i < 10; i++){
+  //calculate new checksum and save it
+  byte WriteBackChkSm = 0;
+  for(byte i = 0; i < sizeof(NvmData); i++){
     EEPROM.update(i, NvmData[i]);
+    WriteBackChkSm += NvmData[i];
   }
+  EEPROM.update(sizeof(NvmData), WriteBackChkSm);
 }
